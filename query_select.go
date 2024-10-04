@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strconv"
 	"sync"
 
 	"github.com/uptrace/bun/dialect"
@@ -25,13 +24,12 @@ type SelectQuery struct {
 	whereBaseQuery
 	idxHintsQuery
 	orderQuery
+	limitOffsetQuery
 
 	distinctOn []schema.QueryWithArgs
 	joins      []joinQuery
 	group      []schema.QueryWithArgs
 	having     []schema.QueryWithArgs
-	limit      int32
-	offset     int32
 	selFor     schema.QueryWithArgs
 
 	union []union
@@ -288,12 +286,12 @@ func (q *SelectQuery) OrderExpr(query string, args ...interface{}) *SelectQuery 
 }
 
 func (q *SelectQuery) Limit(n int) *SelectQuery {
-	q.limit = int32(n)
+	q.addLimit(n)
 	return q
 }
 
 func (q *SelectQuery) Offset(n int) *SelectQuery {
-	q.offset = int32(n)
+	q.addOffset(n)
 	return q
 }
 
@@ -585,35 +583,9 @@ func (q *SelectQuery) appendQuery(
 			return nil, err
 		}
 
-		if fmter.Dialect().Features().Has(feature.OffsetFetch) {
-			if q.limit > 0 && q.offset > 0 {
-				b = append(b, " OFFSET "...)
-				b = strconv.AppendInt(b, int64(q.offset), 10)
-				b = append(b, " ROWS"...)
-
-				b = append(b, " FETCH NEXT "...)
-				b = strconv.AppendInt(b, int64(q.limit), 10)
-				b = append(b, " ROWS ONLY"...)
-			} else if q.limit > 0 {
-				b = append(b, " OFFSET 0 ROWS"...)
-
-				b = append(b, " FETCH NEXT "...)
-				b = strconv.AppendInt(b, int64(q.limit), 10)
-				b = append(b, " ROWS ONLY"...)
-			} else if q.offset > 0 {
-				b = append(b, " OFFSET "...)
-				b = strconv.AppendInt(b, int64(q.offset), 10)
-				b = append(b, " ROWS"...)
-			}
-		} else {
-			if q.limit > 0 {
-				b = append(b, " LIMIT "...)
-				b = strconv.AppendInt(b, int64(q.limit), 10)
-			}
-			if q.offset > 0 {
-				b = append(b, " OFFSET "...)
-				b = strconv.AppendInt(b, int64(q.offset), 10)
-			}
+		b, err = q.appendLimitOffset(fmter, b)
+		if err != nil {
+			return nil, err
 		}
 
 		if !q.selFor.IsZero() {

@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1404,5 +1405,55 @@ func (oq *orderQuery) appendOrder(fmter schema.Formatter, b []byte) (_ []byte, e
 
 		return b, nil
 	}
+	return b, nil
+}
+
+//------------------------------------------------------------------------------
+
+type limitOffsetQuery struct {
+	limit  int32
+	offset int32
+}
+
+func (loq *limitOffsetQuery) addLimit(n int) {
+	loq.limit = int32(n)
+}
+
+func (loq *limitOffsetQuery) addOffset(n int) {
+	loq.offset = int32(n)
+}
+
+func (loq *limitOffsetQuery) appendLimitOffset(fmter schema.Formatter, b []byte) (_ []byte, err error) {
+	if fmter.Dialect().Features().Has(feature.OffsetFetch) {
+		if loq.limit > 0 && loq.offset > 0 {
+			b = append(b, " OFFSET "...)
+			b = strconv.AppendInt(b, int64(loq.offset), 10)
+			b = append(b, " ROWS"...)
+
+			b = append(b, " FETCH NEXT "...)
+			b = strconv.AppendInt(b, int64(loq.limit), 10)
+			b = append(b, " ROWS ONLY"...)
+		} else if loq.limit > 0 {
+			b = append(b, " OFFSET 0 ROWS"...)
+
+			b = append(b, " FETCH NEXT "...)
+			b = strconv.AppendInt(b, int64(loq.limit), 10)
+			b = append(b, " ROWS ONLY"...)
+		} else if loq.offset > 0 {
+			b = append(b, " OFFSET "...)
+			b = strconv.AppendInt(b, int64(loq.offset), 10)
+			b = append(b, " ROWS"...)
+		}
+	} else {
+		if loq.limit > 0 {
+			b = append(b, " LIMIT "...)
+			b = strconv.AppendInt(b, int64(loq.limit), 10)
+		}
+		if loq.offset > 0 {
+			b = append(b, " OFFSET "...)
+			b = strconv.AppendInt(b, int64(loq.offset), 10)
+		}
+	}
+
 	return b, nil
 }

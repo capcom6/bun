@@ -13,6 +13,7 @@ import (
 type DeleteQuery struct {
 	whereBaseQuery
 	orderQuery
+	limitOffsetQuery
 	returningQuery
 }
 
@@ -136,6 +137,12 @@ func (q *DeleteQuery) ForceDelete() *DeleteQuery {
 	return q
 }
 
+// ------------------------------------------------------------------------------
+func (q *DeleteQuery) Limit(n int) *DeleteQuery {
+	q.addLimit(n)
+	return q
+}
+
 //------------------------------------------------------------------------------
 
 // Returning adds a RETURNING clause to the query.
@@ -216,6 +223,13 @@ func (q *DeleteQuery) AppendQuery(fmter schema.Formatter, b []byte) (_ []byte, e
 
 	if q.hasFeature(feature.DeleteOrder) {
 		b, err = q.appendOrder(fmter, b)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if q.hasFeature(feature.DeleteLimit) {
+		b, err = q.appendLimitOffset(fmter, b)
 		if err != nil {
 			return nil, err
 		}

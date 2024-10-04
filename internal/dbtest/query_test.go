@@ -1548,8 +1548,15 @@ func TestQuery(t *testing.T) {
 		{
 			id: 167,
 			query: func(db *bun.DB) schema.QueryAppender {
-				// Delete with Order (MySQL, MariaDB)
+				// DELETE ... ORDER BY ... (MySQL, MariaDB)
 				return db.NewDelete().Model(new(Model)).WherePK().Order("id")
+			},
+		},
+		{
+			id: 168,
+			query: func(db *bun.DB) schema.QueryAppender {
+				// DELETE ... ORDER BY ... LIMIT ... (MySQL, MariaDB)
+				return db.NewDelete().Model(new(Model)).WherePK().Order("id").Limit(1)
 			},
 		},
 	}

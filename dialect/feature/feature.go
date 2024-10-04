@@ -33,4 +33,5 @@ const (
 	GeneratedIdentity
 	CompositeIn // ... WHERE (A,B) IN ((N, NN), (N, NN)...)
 	DeleteOrder // DELETE ... ORDER BY ... (MySQL/MariaDB)
+	DeleteLimit // DELETE ... LIMIT ...
 )

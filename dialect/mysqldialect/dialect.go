@@ -50,7 +50,8 @@ func New(opts ...DialectOption) *Dialect {
 		feature.InsertOnDuplicateKey |
 		feature.SelectExists |
 		feature.CompositeIn |
-		feature.DeleteOrder
+		feature.DeleteOrder |
+		feature.DeleteLimit
 
 	for _, opt := range opts {
 		opt(d)

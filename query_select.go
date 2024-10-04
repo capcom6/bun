@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/uptrace/bun/dialect"
@@ -25,12 +24,12 @@ type union struct {
 type SelectQuery struct {
 	whereBaseQuery
 	idxHintsQuery
+	orderQuery
 
 	distinctOn []schema.QueryWithArgs
 	joins      []joinQuery
 	group      []schema.QueryWithArgs
 	having     []schema.QueryWithArgs
-	order      []schema.QueryWithArgs
 	limit      int32
 	offset     int32
 	selFor     schema.QueryWithArgs
@@ -279,36 +278,12 @@ func (q *SelectQuery) Having(having string, args ...interface{}) *SelectQuery {
 }
 
 func (q *SelectQuery) Order(orders ...string) *SelectQuery {
-	for _, order := range orders {
-		if order == "" {
-			continue
-		}
-
-		index := strings.IndexByte(order, ' ')
-		if index == -1 {
-			q.order = append(q.order, schema.UnsafeIdent(order))
-			continue
-		}
-
-		field := order[:index]
-		sort := order[index+1:]
-
-		switch strings.ToUpper(sort) {
-		case "ASC", "DESC", "ASC NULLS FIRST", "DESC NULLS FIRST",
-			"ASC NULLS LAST", "DESC NULLS LAST":
-			q.order = append(q.order, schema.SafeQuery("? ?", []interface{}{
-				Ident(field),
-				Safe(sort),
-			}))
-		default:
-			q.order = append(q.order, schema.UnsafeIdent(order))
-		}
-	}
+	q.addOrder(orders...)
 	return q
 }
 
 func (q *SelectQuery) OrderExpr(query string, args ...interface{}) *SelectQuery {
-	q.order = append(q.order, schema.SafeQuery(query, args))
+	q.addOrderExpr(query, args...)
 	return q
 }
 
@@ -775,25 +750,6 @@ func (q *SelectQuery) appendInlineRelColumns(
 func (q *SelectQuery) appendTables(fmter schema.Formatter, b []byte) (_ []byte, err error) {
 	b = append(b, " FROM "...)
 	return q.appendTablesWithAlias(fmter, b)
-}
-
-func (q *SelectQuery) appendOrder(fmter schema.Formatter, b []byte) (_ []byte, err error) {
-	if len(q.order) > 0 {
-		b = append(b, " ORDER BY "...)
-
-		for i, f := range q.order {
-			if i > 0 {
-				b = append(b, ", "...)
-			}
-			b, err = f.AppendQuery(fmter, b)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		return b, nil
-	}
-	return b, nil
 }
 
 //------------------------------------------------------------------------------

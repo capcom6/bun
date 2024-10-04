@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/uptrace/bun/dialect/feature"
@@ -1345,5 +1346,63 @@ func (ih *idxHintsQuery) bufIndexHint(
 		}
 	}
 	b = append(b, ")"...)
+	return b, nil
+}
+
+//------------------------------------------------------------------------------
+
+type orderQuery struct {
+	order []schema.QueryWithArgs
+}
+
+func (oq *orderQuery) addOrder(orders ...string) {
+	for _, order := range orders {
+		if order == "" {
+			continue
+		}
+
+		index := strings.IndexByte(order, ' ')
+		if index == -1 {
+			oq.order = append(oq.order, schema.UnsafeIdent(order))
+			continue
+		}
+
+		field := order[:index]
+		sort := order[index+1:]
+
+		switch strings.ToUpper(sort) {
+		case "ASC", "DESC", "ASC NULLS FIRST", "DESC NULLS FIRST",
+			"ASC NULLS LAST", "DESC NULLS LAST":
+			oq.order = append(oq.order, schema.SafeQuery("? ?", []interface{}{
+				Ident(field),
+				Safe(sort),
+			}))
+		default:
+			oq.order = append(oq.order, schema.UnsafeIdent(order))
+		}
+	}
+
+}
+
+func (oq *orderQuery) addOrderExpr(query string, args ...interface{}) {
+	oq.order = append(oq.order, schema.SafeQuery(query, args))
+}
+
+func (oq *orderQuery) appendOrder(fmter schema.Formatter, b []byte) (_ []byte, err error) {
+	if len(oq.order) > 0 {
+		b = append(b, " ORDER BY "...)
+
+		for i, f := range oq.order {
+			if i > 0 {
+				b = append(b, ", "...)
+			}
+			b, err = f.AppendQuery(fmter, b)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return b, nil
+	}
 	return b, nil
 }

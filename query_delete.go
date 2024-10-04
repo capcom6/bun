@@ -12,6 +12,7 @@ import (
 
 type DeleteQuery struct {
 	whereBaseQuery
+	orderQuery
 	returningQuery
 }
 
@@ -120,6 +121,16 @@ func (q *DeleteQuery) WhereAllWithDeleted() *DeleteQuery {
 	return q
 }
 
+func (q *DeleteQuery) Order(orders ...string) *DeleteQuery {
+	q.addOrder(orders...)
+	return q
+}
+
+func (q *DeleteQuery) OrderExpr(query string, args ...interface{}) *DeleteQuery {
+	q.addOrderExpr(query, args...)
+	return q
+}
+
 func (q *DeleteQuery) ForceDelete() *DeleteQuery {
 	q.flags = q.flags.Set(forceDeleteFlag)
 	return q
@@ -201,6 +212,13 @@ func (q *DeleteQuery) AppendQuery(fmter schema.Formatter, b []byte) (_ []byte, e
 	b, err = q.mustAppendWhere(fmter, b, withAlias)
 	if err != nil {
 		return nil, err
+	}
+
+	if q.hasFeature(feature.DeleteOrder) {
+		b, err = q.appendOrder(fmter, b)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if q.hasFeature(feature.Returning) && q.hasReturning() {

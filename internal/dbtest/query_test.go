@@ -1545,6 +1545,13 @@ func TestQuery(t *testing.T) {
 				return db.NewInsert().Model(new(Model))
 			},
 		},
+		{
+			id: 167,
+			query: func(db *bun.DB) schema.QueryAppender {
+				// Delete with Order (MySQL, MariaDB)
+				return db.NewDelete().Model(new(Model)).WherePK().Order("id")
+			},
+		},
 	}
 
 	timeRE := regexp.MustCompile(`'2\d{3}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d+)?(\+\d{2}:\d{2})?'`)
